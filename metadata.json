@@ -1,0 +1,6 @@
+{
+  "name": "ShutterPulse",
+  "description": "Dark Cyber-Minimalist camera shutter count analyzer using zero-bandwidth raw file slicing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
