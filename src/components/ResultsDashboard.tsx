@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import { ScanResult } from '../types';
 import { Camera, ShieldCheck, Activity, Download, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { HealthGauge } from './HealthGauge';
 
 interface ResultsDashboardProps {
   result: ScanResult;
@@ -90,25 +91,30 @@ export function ResultsDashboard({ result, onReset }: ResultsDashboardProps) {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between text-[11px] items-center">
-                <span className="text-white/60">HEALTH_SCORE</span>
-                <span className={cn("font-mono", scoreColor)}>
-                  {result.healthScore.toFixed(1)}% - {result.healthScore > 70 ? 'OPTIMAL' : result.healthScore > 30 ? 'MODERATE' : 'CRITICAL'}
-                </span>
-              </div>
-              <div className="grid grid-cols-10 gap-1">
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={cn(
-                      "h-2 rounded-sm transition-colors",
-                      i < Math.round(result.healthScore / 10) 
-                        ? (result.healthScore > 70 ? "bg-[#00FF66]" : result.healthScore > 30 ? "bg-[#FF8A00]" : "bg-[#EF4444]")
-                        : "bg-white/10"
-                    )}
-                  />
-                ))}
+            <div className="flex flex-col md:flex-row items-center gap-6 mt-8 mb-4">
+              <HealthGauge score={result.healthScore} size={140} />
+              <div className="flex-1 space-y-4">
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between text-[11px] items-center">
+                    <span className="text-white/60">HEALTH_SCORE</span>
+                    <span className={cn("font-mono", scoreColor)}>
+                      {result.healthScore.toFixed(1)}% - {result.healthScore > 70 ? 'OPTIMAL' : result.healthScore > 30 ? 'MODERATE' : 'CRITICAL'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-10 gap-1">
+                    {Array.from({ length: 10 }).map((_, i) => (
+                      <div 
+                        key={i} 
+                        className={cn(
+                          "h-2 rounded-sm transition-colors",
+                          i < Math.round(result.healthScore / 10) 
+                            ? (result.healthScore > 70 ? "bg-[#00FF66]" : result.healthScore > 30 ? "bg-[#FF8A00]" : "bg-[#EF4444]")
+                            : "bg-white/10"
+                        )}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
