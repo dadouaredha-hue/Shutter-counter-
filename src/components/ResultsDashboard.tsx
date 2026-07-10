@@ -14,6 +14,8 @@ interface ResultsDashboardProps {
 }
 
 export function ResultsDashboard({ result, onReset, onCompare, isComparison }: ResultsDashboardProps) {
+  const [isGenerating, setIsGenerating] = React.useState(false);
+
   // Stroke Dasharray for SVG Circle (Circumference of r=40 is ~251.2)
   const circumference = 2 * Math.PI * 40;
   const strokeDashoffset = circumference - (result.healthScore / 100) * circumference;
@@ -29,6 +31,226 @@ export function ResultsDashboard({ result, onReset, onCompare, isComparison }: R
     : result.healthScore > 30 
       ? "#FF7B00" 
       : "#EF4444";
+
+  const handleGeneratePDF = async () => {
+    setIsGenerating(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // --- COLOR PALETTE ---
+      const primaryBrand = [255, 138, 0]; // #FF8A00 (Orange)
+      const textDark = [20, 20, 25];       // Very dark grey
+      const textMuted = [120, 120, 128];   // Muted grey
+      const lightFill = [248, 248, 250];   // Off-white/light grey for cards
+      const borderCol = [230, 230, 235];   // Card borders
+      
+      // Select status color based on health score
+      let statusColor = [0, 204, 82]; // Green
+      let statusText = "OPTIMAL";
+      let healthDescription = "Optimal Condition. Your camera's shutter mechanism is in great shape with plenty of estimated life remaining. Continue shooting with confidence!";
+      
+      if (result.healthScore <= 30) {
+        statusColor = [239, 68, 68]; // Red
+        statusText = "CRITICAL";
+        healthDescription = "Critical Wear. Your shutter count is approaching or has exceeded its estimated lifespan rating. We recommend contacting an authorized service center for a proactive shutter mechanism inspection or replacement.";
+      } else if (result.healthScore <= 70) {
+        statusColor = [255, 138, 0]; // Orange
+        statusText = "MODERATE";
+        healthDescription = "Moderate Wear. The shutter has experienced moderate usage. It is performing well, but keep an eye on upcoming maintenance schedules if you plan intensive high-volume shoots.";
+      }
+
+      // --- PAGE 1 ---
+
+      // 1. Decorative Header Bar (Orange accent line at the very top)
+      doc.setFillColor(primaryBrand[0], primaryBrand[1], primaryBrand[2]);
+      doc.rect(0, 0, 210, 4, 'F');
+
+      // 2. Main Title Header (Y: 15 to 35)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+      doc.text("SHUTTERPULSE", 20, 20);
+      
+      // Title Orange Accent Dot
+      doc.setFillColor(primaryBrand[0], primaryBrand[1], primaryBrand[2]);
+      doc.circle(91, 16.5, 1.5, 'F');
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.text("ZERO-BANDWIDTH METADATA REPORT", 20, 26);
+
+      // Document Details (Top Right)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+      doc.text("REPORT ID:", 145, 18);
+      doc.setFont("helvetica", "normal");
+      doc.text(result.id.slice(0, 8).toUpperCase(), 170, 18);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("DATE:", 145, 23);
+      doc.setFont("helvetica", "normal");
+      const dateStr = new Date(result.timestamp).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      doc.text(dateStr, 170, 23);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("FILE NAME:", 145, 28);
+      doc.setFont("helvetica", "normal");
+      // Truncate filename if too long
+      const shortFileName = result.fileName.length > 20 ? result.fileName.slice(0, 17) + "..." : result.fileName;
+      doc.text(shortFileName, 170, 28);
+
+      // Divider Line
+      doc.setDrawColor(borderCol[0], borderCol[1], borderCol[2]);
+      doc.setLineWidth(0.5);
+      doc.line(20, 35, 190, 35);
+
+      // 3. Camera Specs Card (Y: 45 to 80)
+      doc.setFillColor(lightFill[0], lightFill[1], lightFill[2]);
+      doc.roundedRect(20, 45, 170, 35, 3, 3, 'F');
+      
+      // Header band for card
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(primaryBrand[0], primaryBrand[1], primaryBrand[2]);
+      doc.text("CAMERA PROFILE", 26, 53);
+
+      // Spec details
+      doc.setFontSize(9);
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.text("CAMERA BRAND:", 26, 61);
+      doc.text("CAMERA MODEL:", 26, 67);
+      doc.text("SERIAL NUMBER:", 26, 73);
+
+      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+      doc.setFont("helvetica", "bold");
+      doc.text(result.make.toUpperCase(), 65, 61);
+      doc.text(result.model, 65, 67);
+      doc.setFont("helvetica", "normal");
+      doc.text(result.serialNumber || "N/A (Not in metadata)", 65, 73);
+
+      // Right side of card: Firmware + Category
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.text("FIRMWARE:", 125, 61);
+      doc.text("EQUIPMENT TYPE:", 125, 67);
+
+      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+      doc.text(result.firmware || "N/A", 160, 61);
+      doc.setFont("helvetica", "bold");
+      doc.text(result.estimatedLifespan >= 200000 ? "PRO EQUIPMENT" : "CONSUMER EQUIPMENT", 160, 67);
+
+      // 4. Primary Metrics Section (Y: 90 to 180)
+      doc.setFillColor(lightFill[0], lightFill[1], lightFill[2]);
+      doc.roundedRect(20, 90, 170, 90, 3, 3, 'F');
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(primaryBrand[0], primaryBrand[1], primaryBrand[2]);
+      doc.text("SHUTTER LIFESPAN ANALYSIS", 26, 98);
+
+      // Shutter stats grid
+      doc.setFontSize(11);
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.setFont("helvetica", "normal");
+      doc.text("Current Shutter Count", 26, 110);
+      doc.text("Rated Shutter Lifespan", 125, 110);
+
+      doc.setFontSize(24);
+      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+      doc.setFont("helvetica", "bold");
+      const shutterCountFormatted = result.shutterCount !== null ? result.shutterCount.toLocaleString() : 'N/A';
+      doc.text(shutterCountFormatted, 26, 121);
+      doc.text(result.estimatedLifespan.toLocaleString(), 125, 121);
+
+      // Horizontal Separator
+      doc.setDrawColor(borderCol[0], borderCol[1], borderCol[2]);
+      doc.line(26, 128, 184, 128);
+
+      // Health Score Graphic and percentage
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.text("Mechanical Health Score", 26, 138);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(28);
+      doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+      doc.text(`${result.healthScore.toFixed(1)}%`, 26, 151);
+
+      // Status Pill Badge
+      doc.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
+      doc.roundedRect(90, 138, 30, 7, 1.5, 1.5, 'F');
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      doc.text(statusText, 105, 143, { align: 'center' });
+
+      // Progress bar for health score
+      doc.setFillColor(235, 235, 240);
+      doc.roundedRect(26, 160, 158, 4, 2, 2, 'F');
+      
+      const progressBarWidth = (result.healthScore / 100) * 158;
+      if (progressBarWidth > 0) {
+        doc.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
+        doc.roundedRect(26, 160, progressBarWidth, 4, 2, 2, 'F');
+      }
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.text("0% (CRITICAL)", 26, 170);
+      doc.text("100% (NEW)", 161, 170);
+
+      // 5. Insights & Actionable Recommendations (Y: 190 to 240)
+      doc.setFillColor(lightFill[0], lightFill[1], lightFill[2]);
+      doc.roundedRect(20, 190, 170, 45, 3, 3, 'F');
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(primaryBrand[0], primaryBrand[1], primaryBrand[2]);
+      doc.text("EXPERT RECOMMENDATION", 26, 198);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+      
+      const lines = doc.splitTextToSize(healthDescription, 156);
+      doc.text(lines, 26, 207);
+
+      if (result.shutterCount === null) {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(primaryBrand[0], primaryBrand[1], primaryBrand[2]);
+        doc.text("NOTICE: Hybrid Mode recommended to verify direct counts via physical tethering.", 26, 227);
+      }
+
+      // 6. Footer (Y: 270)
+      doc.setDrawColor(borderCol[0], borderCol[1], borderCol[2]);
+      doc.line(20, 265, 190, 265);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+      doc.text("This document is generated automatically using ShutterPulse's metadata analysis engine.", 20, 271);
+      doc.text("For certified evaluations or legal purposes, a full mechanical disassembly is recommended.", 20, 275);
+      doc.text("Page 1 of 1", 190, 271, { align: 'right' });
+
+      doc.save(`shutterpulse-report-${result.make.toLowerCase()}-${result.model.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <motion.div 
@@ -156,9 +378,25 @@ export function ResultsDashboard({ result, onReset, onCompare, isComparison }: R
                   Compare Another
                 </button>
               )}
-              <button className={cn("w-full py-4 text-[#0A0A0C] font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center", onCompare ? "bg-[#FF8A00] shadow-[0_0_20px_rgba(255,138,0,0.3)] hover:brightness-110" : "bg-[#FF8A00] shadow-[0_0_20px_rgba(255,138,0,0.3)] hover:brightness-110")}>
-                <Download className="w-4 h-4 mr-2" />
-                Generate PDF
+              <button 
+                onClick={handleGeneratePDF}
+                disabled={isGenerating}
+                className={cn(
+                  "w-full py-4 text-[#0A0A0C] font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed",
+                  "bg-[#FF8A00] shadow-[0_0_20px_rgba(255,138,0,0.3)] hover:brightness-110"
+                )}
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-[#0A0A0C] border-t-transparent rounded-full animate-spin mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Report
+                  </>
+                )}
               </button>
               <button className="w-full py-3 bg-white/5 text-white/80 font-semibold text-[10px] uppercase tracking-widest rounded-xl border border-white/10 hover:bg-white/10">
                 B2B Dashboard
