@@ -1,3 +1,4 @@
+import React from 'react';
 import { motion } from 'motion/react';
 import { ScanResult } from '../types';
 import { Camera, ShieldCheck, Activity, Download, ChevronRight } from 'lucide-react';
@@ -5,11 +6,14 @@ import { cn } from '../lib/utils';
 import { HealthGauge } from './HealthGauge';
 
 interface ResultsDashboardProps {
+  key?: React.Key | string;
   result: ScanResult;
   onReset: () => void;
+  onCompare?: () => void;
+  isComparison?: boolean;
 }
 
-export function ResultsDashboard({ result, onReset }: ResultsDashboardProps) {
+export function ResultsDashboard({ result, onReset, onCompare, isComparison }: ResultsDashboardProps) {
   // Stroke Dasharray for SVG Circle (Circumference of r=40 is ~251.2)
   const circumference = 2 * Math.PI * 40;
   const strokeDashoffset = circumference - (result.healthScore / 100) * circumference;
@@ -30,18 +34,18 @@ export function ResultsDashboard({ result, onReset }: ResultsDashboardProps) {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-[800px] mx-auto flex flex-col gap-6"
+      className={cn("w-full mx-auto flex flex-col gap-6", isComparison ? "flex-1 max-w-[800px]" : "max-w-[800px]")}
     >
       <div className="flex justify-between items-center w-full mb-4">
         <button 
           onClick={onReset}
           className="px-4 py-2 bg-white/5 text-white/80 font-mono text-[10px] uppercase tracking-widest rounded-lg border border-white/10 hover:bg-white/10 transition-colors flex items-center"
         >
-          <ChevronRight className="w-4 h-4 mr-1 rotate-180" /> Back to Scanner
+          <ChevronRight className="w-4 h-4 mr-1 rotate-180" /> {isComparison ? "Start Over" : "Back to Scanner"}
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
+      <div className={cn("flex gap-6", isComparison ? "flex-col" : "flex-col md:flex-row")}>
         {/* Main Analysis Panel */}
         <div className="flex-1 bg-white/[0.03] border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
           <div className="flex justify-between items-start mb-6">
@@ -121,7 +125,7 @@ export function ResultsDashboard({ result, onReset }: ResultsDashboardProps) {
         </div>
 
         {/* Actions Panel */}
-        <div className="w-full md:w-[320px] bg-white/[0.03] border border-white/10 rounded-2xl p-6 backdrop-blur-xl flex flex-col">
+        <div className={cn("bg-white/[0.03] border border-white/10 rounded-2xl p-6 backdrop-blur-xl flex flex-col", isComparison ? "w-full" : "w-full md:w-[320px]")}>
           <h4 className="text-[11px] font-mono text-white/60 uppercase tracking-widest mb-4">Actions & Export</h4>
           
           <div className="flex-1 flex flex-col">
@@ -143,7 +147,16 @@ export function ResultsDashboard({ result, onReset }: ResultsDashboardProps) {
             </div>
 
             <div className="flex flex-col gap-3 mt-auto">
-              <button className="w-full py-4 bg-[#FF8A00] text-[#0A0A0C] font-bold text-xs uppercase tracking-[0.2em] rounded-xl shadow-[0_0_20px_rgba(255,138,0,0.3)] hover:brightness-110 transition-all flex items-center justify-center">
+              {onCompare && (
+                <button 
+                  onClick={onCompare}
+                  className="w-full py-4 bg-[#00FF66] text-[#0A0A0C] font-bold text-xs uppercase tracking-[0.2em] rounded-xl shadow-[0_0_20px_rgba(0,255,102,0.3)] hover:brightness-110 transition-all flex items-center justify-center"
+                >
+                  <Activity className="w-4 h-4 mr-2" />
+                  Compare Another
+                </button>
+              )}
+              <button className={cn("w-full py-4 text-[#0A0A0C] font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center", onCompare ? "bg-[#FF8A00] shadow-[0_0_20px_rgba(255,138,0,0.3)] hover:brightness-110" : "bg-[#FF8A00] shadow-[0_0_20px_rgba(255,138,0,0.3)] hover:brightness-110")}>
                 <Download className="w-4 h-4 mr-2" />
                 Generate PDF
               </button>

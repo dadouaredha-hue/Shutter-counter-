@@ -5,10 +5,11 @@ import { ResultsDashboard } from './components/ResultsDashboard';
 import { extractMetadata } from './lib/fileSlicer';
 import { ScanResult, ScanStatus } from './types';
 import { Camera, Hexagon } from 'lucide-react';
+import { cn } from './lib/utils';
 
 export default function App() {
   const [status, setStatus] = useState<ScanStatus>('idle');
-  const [result, setResult] = useState<ScanResult | null>(null);
+  const [results, setResults] = useState<ScanResult[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleFileSelect = async (file: File) => {
@@ -22,11 +23,41 @@ export default function App() {
 
       const data = await extractMetadata(file);
       
-      setResult({
-        id: crypto.randomUUID(),
-        timestamp: Date.now(),
-        fileName: file.name,
-        ...data
+      let estimatedLifespan = data.estimatedLifespan;
+      let healthScore = data.healthScore;
+
+      if (data.make && data.make !== 'Unknown Make' && data.model && data.model !== 'Unknown Model') {
+        setStatus('fetching_lifespan');
+        try {
+          const res = await fetch('/api/lifespan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ make: data.make, model: data.model }),
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.lifespan) {
+              estimatedLifespan = json.lifespan;
+              if (data.shutterCount !== null) {
+                healthScore = Math.max(0, 100 - (data.shutterCount / estimatedLifespan) * 100);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch lifespan", e);
+        }
+      }
+      
+      setResults(prev => {
+        const newResult = {
+          id: crypto.randomUUID(),
+          timestamp: Date.now(),
+          fileName: file.name,
+          ...data,
+          estimatedLifespan,
+          healthScore
+        };
+        return [...prev, newResult].slice(-2);
       });
       
       setStatus('success');
@@ -39,7 +70,12 @@ export default function App() {
 
   const handleReset = () => {
     setStatus('idle');
-    setResult(null);
+    setResults([]);
+    setErrorMsg(null);
+  };
+
+  const handleCompare = () => {
+    setStatus('idle');
     setErrorMsg(null);
   };
 
@@ -83,7 +119,7 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 flex items-center justify-center relative z-10 w-full mx-auto">
         <AnimatePresence mode="wait">
-          {status === 'idle' || status === 'slicing' || status === 'parsing' ? (
+          {status === 'idle' || status === 'slicing' || status === 'parsing' || status === 'fetching_lifespan' ? (
             <motion.div 
               key="scanner"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -93,16 +129,23 @@ export default function App() {
             >
               <div className="text-center mb-8">
                 <h2 className="text-lg font-semibold text-white mb-2 uppercase tracking-wide">
-                  Analyze RAW Sequence
+                  {results.length === 1 ? "Scan Second Camera" : "Analyze RAW Sequence"}
                 </h2>
-                <p className="text-xs text-white/40 max-w-[200px] mx-auto">
-                  Drag & drop ARW, NEF, CR3, or DNG for instant client-side chunking
+                <p className="text-xs text-white/40 max-w-[300px] mx-auto">
+                  {results.length === 1 
+                    ? "Drag & drop a photo from another camera to compare" 
+                    : "Drag & drop ARW, NEF, CR3, or DNG for instant client-side chunking"}
                 </p>
+                {results.length === 1 && status === 'idle' && (
+                  <button onClick={() => setStatus('success')} className="mt-4 text-[10px] text-white/40 hover:text-white uppercase tracking-widest font-mono underline">
+                    Cancel Comparison
+                  </button>
+                )}
               </div>
 
               <ApertureDropzone 
                 onFileSelect={handleFileSelect} 
-                isScanning={status === 'slicing' || status === 'parsing'} 
+                status={status} 
               />
               
               {status === 'error' && errorMsg && (
@@ -116,11 +159,21 @@ export default function App() {
                 </motion.div>
               )}
             </motion.div>
-          ) : status === 'success' && result ? (
-            <ResultsDashboard 
-              result={result}
-              onReset={handleReset}
-            />
+          ) : status === 'success' && results.length > 0 ? (
+            <div className={cn(
+              "w-full mx-auto",
+              results.length === 2 ? "flex flex-col xl:flex-row gap-6 max-w-[1600px] items-start justify-center" : "max-w-[800px]"
+            )}>
+              {results.map((res, index) => (
+                <ResultsDashboard 
+                  key={res.id}
+                  result={res}
+                  onReset={handleReset}
+                  onCompare={index === 0 && results.length === 1 ? handleCompare : undefined}
+                  isComparison={results.length === 2}
+                />
+              ))}
+            </div>
           ) : null}
         </AnimatePresence>
       </main>

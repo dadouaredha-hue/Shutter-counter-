@@ -5,11 +5,12 @@ import { cn } from '../lib/utils';
 
 interface ApertureDropzoneProps {
   onFileSelect: (file: File) => void;
-  isScanning: boolean;
+  status: 'idle' | 'slicing' | 'parsing' | 'fetching_lifespan' | 'success' | 'error';
 }
 
-export function ApertureDropzone({ onFileSelect, isScanning }: ApertureDropzoneProps) {
+export function ApertureDropzone({ onFileSelect, status }: ApertureDropzoneProps) {
   const [isDragActive, setIsDragActive] = useState(false);
+  const isScanning = status === 'slicing' || status === 'parsing' || status === 'fetching_lifespan';
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -93,9 +94,11 @@ export function ApertureDropzone({ onFileSelect, isScanning }: ApertureDropzoneP
                   <div className="mb-4 w-16 h-16 border border-[#FF8A00]/40 rounded-lg flex items-center justify-center bg-[#FF8A00]/5 text-[#FF8A00]">
                     <Camera className="w-8 h-8 animate-spin-slow" />
                   </div>
-                  <h2 className="text-lg font-semibold text-white mb-2 uppercase tracking-wide">Extracting Metadata...</h2>
+                  <h2 className="text-lg font-semibold text-white mb-2 uppercase tracking-wide">
+                    {status === 'fetching_lifespan' ? 'Searching Database...' : 'Extracting Metadata...'}
+                  </h2>
                   <div className="py-2 px-4 border border-[#FF8A00]/30 rounded-full text-[10px] font-mono text-[#FF8A00] tracking-tighter">
-                    ZERO_BANDWIDTH_SLICING
+                    {status === 'fetching_lifespan' ? 'AI_SEARCH_GROUNDING' : 'ZERO_BANDWIDTH_SLICING'}
                   </div>
                 </motion.div>
               ) : (

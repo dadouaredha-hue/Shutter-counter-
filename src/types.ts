@@ -11,4 +11,4 @@ export interface ScanResult {
   estimatedLifespan: number;
 }
 
-export type ScanStatus = 'idle' | 'slicing' | 'parsing' | 'success' | 'error';
+export type ScanStatus = 'idle' | 'slicing' | 'parsing' | 'fetching_lifespan' | 'success' | 'error';
