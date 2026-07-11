@@ -1,0 +1,13 @@
+{
+  "name": "shuttercounter",
+  "compatibility_date": "2024-11-01",
+  "main": "worker.ts",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
